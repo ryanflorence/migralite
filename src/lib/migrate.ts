@@ -112,7 +112,14 @@ export class Migrator {
     let id = migration.split("-")[0];
     let db = this.db;
 
-    let query = db.prepare(sql);
+    let query;
+    try {
+      // validate sql even for dry runs
+      query = db.prepare(sql);
+    } catch (error) {
+      console.error(`Error preparing sql for migration: ${fileName}`);
+      throw error;
+    }
 
     if (!this.options.dry) {
       db.transaction(() => {

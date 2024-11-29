@@ -75,9 +75,6 @@ const commands = {
         const isLast = i === migrations.length - 1;
         console.log(pc.dim(isLast ? "  └─" : "  ├─"), pc.white(file));
       }
-    } catch (error) {
-      console.log(pc.red(`Error applying migrations, error below`));
-      throw error;
     } finally {
       db.close();
     }
@@ -104,9 +101,6 @@ const commands = {
         const isLast = i === migrations.length - 1;
         console.log(pc.dim(isLast ? "  └─" : "  ├─"), pc.white(file));
       });
-    } catch (error) {
-      console.log(pc.red(`Error rolling back migrations, error below`));
-      throw error;
     } finally {
       db.close();
     }
@@ -206,7 +200,4 @@ async function main() {
   }
 }
 
-main().catch(error => {
-  console.log(pc.red(`Unexpected error, error below`));
-  throw error;
-});
+main();
