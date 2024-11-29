@@ -165,7 +165,7 @@ ${pc.dim("Options:")}
   -s, --steps    Number of migrations to roll back (default: 1)
 
 ${pc.dim("Examples:")}
-  Create:   migralite create -n "add-users" --up "..." --down "..."
+  Create:   migralite create -n "add users table"
   Up:       migralite up
   Rollback: migralite rollback --steps 2
   Status:   migralite status
