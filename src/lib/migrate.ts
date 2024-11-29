@@ -126,10 +126,10 @@ export class Migrator {
         query.run();
         if (direction === "up") {
           db.prepare(
-            "INSERT INTO migrations (id, name, applied_at) VALUES (?, ?, ?)",
+            "INSERT INTO _migralite (id, name, applied_at) VALUES (?, ?, ?)",
           ).run(id, fileName, new Date().toISOString());
         } else {
-          db.prepare("DELETE FROM migrations WHERE id = ?").run(id);
+          db.prepare("DELETE FROM _migralite WHERE id = ?").run(id);
         }
       })();
     }
@@ -143,7 +143,7 @@ export class Migrator {
 
   private async initDb() {
     this.db.exec(`
-      CREATE TABLE IF NOT EXISTS migrations (
+      CREATE TABLE IF NOT EXISTS _migralite (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -159,7 +159,7 @@ export class Migrator {
 
   async getAppliedMigrations() {
     let entries = this.db
-      .prepare("SELECT id, name, applied_at FROM migrations ORDER BY id ")
+      .prepare("SELECT id, name, applied_at FROM _migralite ORDER BY id ")
       .all() as MigrationEntry[];
     return entries;
   }
