@@ -1,6 +1,6 @@
 {
   "name": "@ryanflorence/migralite",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Database migration for SQLite Databases",
   "author": "Ryan Florence <rpflorence@gmail.com>",
   "repository": {
