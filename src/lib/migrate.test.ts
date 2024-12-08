@@ -3,7 +3,7 @@ import { afterEach, test, describe } from "node:test";
 import fs from "node:fs/promises";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { Migrator } from "./migrate.js";
+import { Migrator } from "./migrate.ts";
 
 const TEST_DIR = await fs.mkdtemp("test");
 
@@ -57,6 +57,42 @@ describe("create", () => {
 });
 
 describe("up", () => {
+  test("supports multiple statements", async () => {
+    let db = new Database(":memory:");
+    let migrator = new Migrator(db, TEST_DIR);
+
+    let upSql = `
+      CREATE TABLE users (id INTEGER, name TEXT);
+      CREATE TABLE posts (id INTEGER, title TEXT);
+    `;
+    let downSql = `
+      DROP TABLE users;
+      DROP TABLE posts;
+    `;
+    let migration = await stubTimestamp("01", () =>
+      migrator.create("add users and posts", upSql, downSql),
+    );
+
+    let migrated = await migrator.up();
+
+    assert.deepEqual(migrated, [migration.name]);
+
+    let q = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
+    let tables = db.prepare(q).all();
+    assert.deepEqual(tables, [
+      { name: "_migralite" },
+      { name: "posts" },
+      { name: "users" },
+    ]);
+
+    // rollback
+    let rolledBack = await migrator.rollback();
+    assert.deepEqual(rolledBack, [migration.name]);
+
+    tables = db.prepare(q).all();
+    assert.deepEqual(tables, [{ name: "_migralite" }]);
+  });
+
   test("no migrations to run", async () => {
     let db = new Database(":memory:");
     let migrator = new Migrator(db, TEST_DIR);
@@ -84,14 +120,14 @@ describe("up", () => {
     let migrated = await migrator.up();
 
     // check output
-    assert.deepEqual(migrated, [a.up, b.up]);
+    assert.deepEqual(migrated, [a.name, b.name]);
 
     // check database
     let q = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
     let tables = db.prepare(q).all();
 
     assert.deepEqual(tables, [
-      { name: "migrations" },
+      { name: "_migralite" },
       { name: "posts" },
       { name: "users" },
     ]);
@@ -119,7 +155,7 @@ describe("up", () => {
     let q = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
     let tables = db.prepare(q).all();
 
-    assert.deepEqual(tables, [{ name: "migrations" }, { name: "users" }]);
+    assert.deepEqual(tables, [{ name: "_migralite" }, { name: "users" }]);
   });
 
   test("migrates all pending migrations", async () => {
@@ -152,7 +188,7 @@ describe("up", () => {
     let tables = db.prepare(q).all();
 
     assert.deepEqual(tables, [
-      { name: "migrations" },
+      { name: "_migralite" },
       { name: "posts" },
       { name: "users" },
     ]);
@@ -196,7 +232,7 @@ describe("up", () => {
     let tables = db.prepare(q).all();
 
     assert.deepEqual(tables, [
-      { name: "migrations" },
+      { name: "_migralite" },
       { name: "posts" },
       { name: "users" },
     ]);
@@ -218,12 +254,12 @@ describe("rollback", () => {
 
     let rolledBack = await migrator.rollback();
 
-    assert.deepEqual(rolledBack, [a.down]);
+    assert.deepEqual(rolledBack, [a.name]);
 
     let q = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
     let tables = db.prepare(q).all();
 
-    assert.deepEqual(tables, [{ name: "migrations" }]);
+    assert.deepEqual(tables, [{ name: "_migralite" }]);
   });
 
   test("rolls back multiple migrations", async () => {
@@ -245,11 +281,11 @@ describe("rollback", () => {
     await migrator.up();
 
     let rolledBack = await migrator.rollback(2);
-    assert.deepEqual(rolledBack, ["02-add-posts/-.sql", "01-add-users/-.sql"]);
+    assert.deepEqual(rolledBack, ["02-add-posts", "01-add-users"]);
 
     let q = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
     let tables = db.prepare(q).all();
-    assert.deepEqual(tables, [{ name: "migrations" }]);
+    assert.deepEqual(tables, [{ name: "_migralite" }]);
   });
 
   test("no migrations to rollback", async () => {
@@ -277,7 +313,7 @@ describe("rollback", () => {
 
     let q = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
     let tables = db.prepare(q).all();
-    assert.deepEqual(tables, [{ name: "migrations" }, { name: "users" }]);
+    assert.deepEqual(tables, [{ name: "_migralite" }, { name: "users" }]);
   });
 
   test("zero steps runs no down migrations", async () => {
@@ -297,7 +333,7 @@ describe("rollback", () => {
 
     let q = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
     let tables = db.prepare(q).all();
-    assert.deepEqual(tables, [{ name: "migrations" }, { name: "users" }]);
+    assert.deepEqual(tables, [{ name: "_migralite" }, { name: "users" }]);
   });
 
   test("steps > applied migrations runs all down migrations", async () => {
@@ -316,11 +352,11 @@ describe("rollback", () => {
 
     // rollback 2 migrations even though we only have 1
     let rolledBack = await migrator.rollback(2);
-    assert.deepEqual(rolledBack, ["01-add-users/-.sql"]);
+    assert.deepEqual(rolledBack, ["01-add-users"]);
 
     let q = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
     let tables = db.prepare(q).all();
-    assert.deepEqual(tables, [{ name: "migrations" }]);
+    assert.deepEqual(tables, [{ name: "_migralite" }]);
   });
 });
 
@@ -337,12 +373,12 @@ test("dry doesn't write to the db", async () => {
   let migrated = await migrator.up();
 
   // returns the migration that would have been run
-  assert.deepEqual(migrated, [a.up]);
+  assert.deepEqual(migrated, [a.name]);
 
   let q = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
   let tables = db.prepare(q).all();
   // doesn't write to the db
-  assert.deepEqual(tables, [{ name: "migrations" }]);
+  assert.deepEqual(tables, [{ name: "_migralite" }]);
 });
 
 ////////////////////////////////////////////////////////////////////////////////

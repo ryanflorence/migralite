@@ -1,8 +1,13 @@
 {
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "module": "NodeNext",
+    "strict": true,
+
+    // node:test runner integration
     "moduleResolution": "NodeNext",
-    "strict": true
+    "rewriteRelativeImportExtensions": true,
+    "target": "esnext",
+    "module": "NodeNext",
+    "allowImportingTsExtensions": true
   }
 }

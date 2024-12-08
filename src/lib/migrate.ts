@@ -14,11 +14,18 @@ export type MigratorOptions = {
 };
 
 export class Migrator {
+  public db: Database;
+  public dir: string;
+  public options: MigratorOptions;
+
   constructor(
-    public db: Database,
-    public dir: string,
-    public options: MigratorOptions = { dry: false },
+    db: Database,
+    dir: string,
+    options: MigratorOptions = { dry: false },
   ) {
+    this.db = db;
+    this.dir = dir;
+    this.options = options;
     this.initFs();
     this.initDb();
   }
@@ -39,11 +46,9 @@ export class Migrator {
     let upPath = path.join(this.dir, up);
     let downPath = path.join(this.dir, down);
 
-    if (!this.options.dry) {
-      await fs.mkdir(dirPath, { recursive: true });
-      await fs.writeFile(upPath, upSql);
-      await fs.writeFile(downPath, downSql);
-    }
+    await fs.mkdir(dirPath, { recursive: true });
+    await fs.writeFile(upPath, upSql);
+    await fs.writeFile(downPath, downSql);
 
     return { name: migrationName, up, down };
   }
@@ -112,10 +117,18 @@ export class Migrator {
     let id = migration.split("-")[0];
     let db = this.db;
 
-    let query;
+    // Split into statements, filter out empty ones
+    let statements = sql
+      .split(";")
+      .map(stmt => stmt.trim())
+      .filter(stmt => stmt.length > 0);
+
+    // Validate all statements first
+    let queries = [];
     try {
-      // validate sql even for dry runs
-      query = db.prepare(sql);
+      for (let statement of statements) {
+        queries.push(db.prepare(statement));
+      }
     } catch (error) {
       console.error(`Error preparing sql for migration: ${fileName}`);
       throw error;
@@ -123,7 +136,11 @@ export class Migrator {
 
     if (!this.options.dry) {
       db.transaction(() => {
-        query.run();
+        for (let query of queries) {
+          query.run();
+        }
+
+        // Track migration in _migralite table
         if (direction === "up") {
           db.prepare(
             "INSERT INTO _migralite (id, name, applied_at) VALUES (?, ?, ?)",
@@ -134,7 +151,7 @@ export class Migrator {
       })();
     }
 
-    return fileName;
+    return migration;
   }
 
   private async initFs() {
