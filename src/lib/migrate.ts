@@ -123,21 +123,10 @@ export class Migrator {
       .map(stmt => stmt.trim())
       .filter(stmt => stmt.length > 0);
 
-    // Validate all statements first
-    let queries = [];
-    try {
-      for (let statement of statements) {
-        queries.push(db.prepare(statement));
-      }
-    } catch (error) {
-      console.error(`Error preparing sql for migration: ${fileName}`);
-      throw error;
-    }
-
     if (!this.options.dry) {
       db.transaction(() => {
-        for (let query of queries) {
-          query.run();
+        for (let statement of statements) {
+          db.prepare(statement).run();
         }
 
         // Track migration in _migralite table
