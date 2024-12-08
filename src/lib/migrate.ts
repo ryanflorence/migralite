@@ -117,19 +117,10 @@ export class Migrator {
     let id = migration.split("-")[0];
     let db = this.db;
 
-    // Split into statements, filter out empty ones
-    let statements = sql
-      .split(";")
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0);
-
     if (!this.options.dry) {
       db.transaction(() => {
-        for (let statement of statements) {
-          db.prepare(statement).run();
-        }
+        db.exec(sql);
 
-        // Track migration in _migralite table
         if (direction === "up") {
           db.prepare(
             "INSERT INTO _migralite (id, name, applied_at) VALUES (?, ?, ?)",
